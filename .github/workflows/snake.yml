@@ -14,8 +14,10 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # get full history so we can delete branches
 
-      - name: Generate the snake
+      - name: Generate snake SVG
         uses: Platane/snk@v3
         id: snake-gif
         with:
@@ -24,11 +26,34 @@ jobs:
             dist/github-contribution-grid-snake.svg
             dist/github-contribution-grid-snake-dark.svg?palette=github-dark
 
-      - name: Deploy to output branch
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          publish_branch: output
-          force: true
-          commit_message: "Update snake animation"
+      - name: Deploy to 'output' branch with git
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Delete local output branch if it exists
+          if git show-ref --verify --quiet refs/heads/output; then
+            git branch -D output
+          fi
+
+          # Delete remote output branch if it exists (clean slate)
+          if git ls-remote --heads origin output | grep -q output; then
+            git push origin --delete output
+          fi
+
+          # Create a new orphan branch (no commit history)
+          git checkout --orphan output
+
+          # Remove all files from the working tree except the dist folder
+          git rm -rf . --ignore-unmatch
+
+          # Move the generated SVG files to the root
+          cp -r dist/* .
+
+          # Add and commit
+          git add .
+          git commit -m "Update snake animation"
+
+          # Force push to remote output branch
+          git push origin output --force
