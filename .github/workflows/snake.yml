@@ -1,0 +1,51 @@
+name: Generate snake animation
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate snake SVG
+        uses: Platane/snk@v3
+        id: snake-gif
+        with:
+          github_user_name: asifaaron62
+          outputs: |
+            dist/github-contribution-grid-snake.svg
+            dist/github-contribution-grid-snake-dark.svg?palette=github-dark
+
+      - name: Deploy to 'output' branch with git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git show-ref --verify --quiet refs/heads/output; then
+            git branch -D output
+          fi
+
+          if git ls-remote --heads origin output | grep -q output; then
+            git push origin --delete output
+          fi
+
+          git checkout --orphan output
+
+          git rm -rf . --ignore-unmatch
+
+          cp -r dist/* .
+
+          git add .
+          git commit -m "Update snake animation"
+
+          git push origin output --force
